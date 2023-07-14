@@ -33,9 +33,8 @@ Add cloud browser handlers and change reactor in `settings.py`:
 ```python
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
-DOWNLOAD_HANDLERS = {
-    "http": "scrapy_cloud_browser.CloudBrowserHandler",
-    "https": "scrapy_cloud_browser.CloudBrowserHandler",
+EXTENSIONS = {
+    'scrapy_cloud_browser.CloudBrowserExtension': 500,
 }
 ```
 
