@@ -1,14 +1,14 @@
-# scrapy-cloud-browser
+# scrapy-playwright-cloud-browser
 
-[![PyPI - Version](https://img.shields.io/pypi/v/scrapy-cloud-browser.svg)](https://pypi.org/project/scrapy-cloud-browser)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/scrapy-cloud-browser.svg)](https://pypi.org/project/scrapy-cloud-browser)
+[![PyPI - Version](https://img.shields.io/pypi/v/scrapy-playwright-cloud-browser.svg)](https://pypi.org/project/scrapy-playwright-cloud-browser)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/scrapy-playwright-cloud-browser.svg)](https://pypi.org/project/scrapy-playwright-cloud-browser)
 
 -----
 
 ## Installation
 
 ```console
-pip install scrapy-cloud-browser
+pip install scrapy-playwright-cloud-browser
 ```
 
 ## Usage
@@ -34,11 +34,11 @@ Add cloud browser handlers and change reactor in `settings.py`:
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
 EXTENSIONS = {
-    'scrapy_cloud_browser.CloudBrowserExtension': 500,
+    'scrapy_playwright_cloud_browser.CloudBrowserExtension': 500,
 }
 ```
 
 
 ## License
 
-`scrapy-cloud-browser` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
+`scrapy-playwright-cloud-browser` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.

@@ -25,7 +25,7 @@ from scrapy.utils.misc import load_object
 from scrapy_playwright.handler import DEFAULT_BROWSER_TYPE, ScrapyPlaywrightDownloadHandler
 from twisted.internet.defer import Deferred
 
-from scrapy_cloud_browser.settings import SettingsScheme
+from scrapy_playwright_cloud_browser.settings import SettingsScheme
 
 log = logging.getLogger(__name__)
 
