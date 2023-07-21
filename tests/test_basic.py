@@ -4,7 +4,7 @@ import pytest
 from scrapy.settings import Settings
 from twisted.internet import asyncioreactor
 
-from scrapy_cloud_browser import CloudBrowserHandler
+from scrapy_playwright_cloud_browser import CloudBrowserHandler
 
 
 asyncioreactor.install()

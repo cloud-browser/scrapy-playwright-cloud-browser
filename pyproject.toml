@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "scrapy-cloud-browser"
+name = "scrapy-playwright-cloud-browser"
 dynamic = ["version"]
 description = ''
 readme = "README.md"
@@ -31,12 +31,12 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/cloudbrowser/scrapy-cloud-browser#readme"
-Issues = "https://github.com/cloudbrowser/scrapy-cloud-browser/issues"
-Source = "https://github.com/cloudbrowser/scrapy-cloud-browser"
+Documentation = "https://github.com/cloud-browser/scrapy-playwright-cloud-browser#readme"
+Issues = "https://github.com/cloud-browser/scrapy-playwright-cloud-browser/issues"
+Source = "https://github.com/cloud-browser/scrapy-playwright-cloud-browser"
 
 [tool.hatch.version]
-path = "scrapy_cloud_browser/__about__.py"
+path = "scrapy_playwright_cloud_browser/__about__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -66,7 +66,7 @@ dependencies = [
   "ruff>=0.0.243",
 ]
 [tool.hatch.envs.lint.scripts]
-typing = "mypy --install-types --non-interactive {args:scrapy_cloud_browser tests}"
+typing = "mypy --install-types --non-interactive {args:scrapy_playwright_cloud_browser tests}"
 style = [
   "ruff {args:.}",
   "black --check --diff {args:.}",
@@ -98,7 +98,7 @@ multi_line_output = 3
 sections = ['FUTURE', 'STDLIB', 'THIRDPARTY', 'OWN', 'FIRSTPARTY', 'LOCALFOLDER']
 
 known_first_party = ''
-known_own = ['scrapy_cloud_browser']
+known_own = ['scrapy_playwright_cloud_browser']
 
 [tool.ruff]
 target-version = "py311"
@@ -148,7 +148,7 @@ unfixable = [
 ]
 
 [tool.ruff.isort]
-known-first-party = ["scrapy_cloud_browser"]
+known-first-party = ["scrapy_playwright_cloud_browser"]
 
 [tool.ruff.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -163,16 +163,16 @@ multiline-quotes = "single"
 "tests/**/*" = ["PLR2004", "S101", "TID252"]
 
 [tool.coverage.run]
-source_pkgs = ["scrapy_cloud_browser", "tests"]
+source_pkgs = ["scrapy_playwright_cloud_browser", "tests"]
 branch = true
 parallel = true
 omit = [
-  "scrapy_cloud_browser/__about__.py",
+  "scrapy_playwright_cloud_browser/__about__.py",
 ]
 
 [tool.coverage.paths]
-scrapy_cloud_browser = ["scrapy_cloud_browser", "*/scrapy-cloud-browser/scrapy_cloud_browser"]
-tests = ["tests", "*/scrapy-cloud-browser/tests"]
+scrapy_playwright_cloud_browser = ["scrapy_playwright_cloud_browser", "*/scrapy-playwright-cloud-browser/scrapy_playwright_cloud_browser"]
+tests = ["tests", "*/scrapy-playwright-cloud-browser/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
