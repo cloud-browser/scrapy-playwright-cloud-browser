@@ -1,17 +1,17 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "scrapy-playwright-cloud-browser"
-dynamic = ["version"]
-description = ''
+version = "0.1.2"
+description = "A Scrapy extension that integrates with https://surfsky.io using Playwright"
 readme = "README.md"
-requires-python = ">=3.7"
-license = "MIT"
+requires-python = ">=3.9"
+license = {text = "MIT"}
 keywords = []
 authors = [
-  { name = "Cloud Browser Team", email = "support@example.net" },
+  { name = "Surfsky.io", email = "hello@surfsky.io" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -21,19 +21,27 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
 ]
 dependencies = [
   "httpx",
+  "pydantic>=2.10",
+  "websockets",
+  "scrapy~=2.12.0",
   "scrapy-playwright>=0.0.26",
-  "pydantic>=2.0",
+  "anyio",
 ]
 
 [project.urls]
-Documentation = "https://github.com/cloud-browser/scrapy-playwright-cloud-browser#readme"
-Issues = "https://github.com/cloud-browser/scrapy-playwright-cloud-browser/issues"
-Source = "https://github.com/cloud-browser/scrapy-playwright-cloud-browser"
+Documentation = "https://github.com/cloudbrowser/scrapy-playwright-cloud-browser#readme"
+Issues = "https://github.com/cloudbrowser/scrapy-playwright-cloud-browser/issues"
+Source = "https://github.com/cloudbrowser/scrapy-playwright-cloud-browser"
+"Homepage" = "https://github.com/cloudbrowser/scrapy-playwright-cloud-browser"
+"Bug Tracker" = "https://github.com/cloudbrowser/scrapy-playwright-cloud-browser/issues"
 
 [tool.hatch.version]
 path = "scrapy_playwright_cloud_browser/__about__.py"
@@ -56,7 +64,7 @@ cov = [
 ]
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.7", "3.8", "3.9", "3.10", "3.11"]
+python = ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
 
 [tool.hatch.envs.lint]
 detached = true
@@ -82,7 +90,7 @@ all = [
 ]
 
 [tool.black]
-target-version = ['py311']
+target-version = ['py312']
 line-length = 100
 skip-string-normalization = true
 
@@ -101,7 +109,7 @@ known_first_party = ''
 known_own = ['scrapy_playwright_cloud_browser']
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 select = [
   "A",

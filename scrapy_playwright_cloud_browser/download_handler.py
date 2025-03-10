@@ -4,7 +4,7 @@ import logging
 import random
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Optional, Union
+from typing import Awaitable, Callable, Optional, Union, Dict, Any
 
 import anyio
 import httpx
@@ -24,10 +24,11 @@ from scrapy.utils.defer import deferred_from_coro
 from scrapy.utils.misc import load_object
 from scrapy_playwright.handler import DEFAULT_BROWSER_TYPE, ScrapyPlaywrightDownloadHandler
 from twisted.internet.defer import Deferred
+from scrapy.utils.reactor import verify_installed_reactor
 
-from scrapy_playwright_cloud_browser.settings import SettingsScheme
+from scrapy_playwright_cloud_browser.schemas import ProxyOrdering, SettingsScheme
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -37,6 +38,8 @@ class Options:
     timeout: int = 60
     init_handler: Optional[str] = None
     pages_per_browser: Optional[int] = None
+    browser_settings: Optional[Dict[str, Any]] = None
+    fingerprint: Optional[Dict[str, Any]] = None
 
 
 class BrowserContextWrapperError(PlaywrightError):
@@ -53,28 +56,32 @@ class FakeSemaphore:
 
 class ProxyManager:
     def __init__(
-        self, proxies: Union[list[str], Callable[[None], Awaitable[str]]], ordering: str
+        self, proxies: Union[list[str], Callable[[], Awaitable[str]]], ordering: str
     ) -> None:
-        assert ordering in ('random', 'round-robin')
+        ordering = ProxyOrdering(ordering)
 
         if isinstance(proxies, list):
-            if ordering == 'round-robin':
-                self.proxies = itertools.cycle(proxies)
+            if not proxies:
+                raise ValueError("Proxies list cannot be empty")
+
+            if ordering == ProxyOrdering.ROUND_ROBIN:
+                self._proxies = itertools.cycle(proxies)
+            elif ordering == ProxyOrdering.RANDOM:
+                self._proxies = proxies
             else:
-                self.proxies = proxies
+                raise ValueError(f'Unknown ordering type: {ordering}')
         elif asyncio.iscoroutinefunction(proxies):
-            self.proxies = proxies
+            self._proxies = proxies
         else:
-            raise ValueError('Proxies must be list or coroutine function')
+            raise ValueError('Proxies must be a list or a coroutine function')
 
     async def get(self) -> str:
-        if asyncio.iscoroutinefunction(self.proxies):
-            return await self.proxies()
-
-        if isinstance(self.proxies, itertools.cycle):
-            return str(next(self.proxies))
-
-        return str(random.choice(self.proxies))
+        if asyncio.iscoroutinefunction(self._proxies):
+            return await self._proxies()
+        elif isinstance(self._proxies, itertools.cycle):
+            return str(next(self._proxies))
+        else:
+            return str(random.choice(self._proxies))
 
 
 class BrowserContextWrapper:
@@ -100,10 +107,10 @@ class BrowserContextWrapper:
         self._last_ok_heartbeat = False
         self._heartbeat_interval = 5
 
-        log.info(f'{options.init_handler=}')
-        self._init_handler: Optional[
-            Callable[[BrowserContext], Awaitable[None]]
-        ] = self.load_init_handler(options.init_handler)
+        logger.info(f'{options.init_handler=}')
+        self._init_handler: Optional[Callable[[BrowserContext], Awaitable[None]]] = (
+            self.load_init_handler(options.init_handler)
+        )
         self._pages_per_browser_left: Optional[int] = None
         self._start_sem = start_sem
         self._proxy_manager = proxy_manager
@@ -112,21 +119,23 @@ class BrowserContextWrapper:
 
     async def run(self):
         self._started = True
-        log.info(f'{self.num}: RUN WORKER')
+        logger.debug(f'{self.num}: RUN WORKER')
         self.start_heartbeat()
         while self._started:
             try:
                 await self.connect()
-                log.info(f'{self.num}: check connection')
+                logger.debug(f'{self.num}: check connection')
                 await self.check_connection()
-                log.info(f'{self.num}: put into queue with {self._browser_pool.qsize()} workers')
+                logger.debug(
+                    f'{self.num}: put into queue with {self._browser_pool.qsize()} workers'
+                )
                 await self._browser_pool.put(self)
                 # important: wait only if we put ourselves
-                log.info(f'{self.num}: wait for next task')
+                logger.debug(f'{self.num}: wait for next task')
                 await self._wait.wait()
                 self._wait.clear()
             except Exception:
-                log.exception(f'{self.num}: during worker loop')
+                logger.exception(f'{self.num}: during worker loop')
                 await self.close()
                 continue
 
@@ -137,7 +146,7 @@ class BrowserContextWrapper:
         cdp_session = None
 
         while self._started:
-            log.info(f'{self.num}: Heartbeat: {self._last_ok_heartbeat}')
+            logger.debug(f'{self.num}: Heartbeat: {self._last_ok_heartbeat}')
 
             if self.context:
                 if not isinstance(cdp_session, CDPSession):
@@ -159,9 +168,9 @@ class BrowserContextWrapper:
         return browser_type
 
     async def connect(self) -> None:
-        log.info(f'{self.num}: connect')
+        logger.debug(f'{self.num}: connect')
         if self.is_established_connection():
-            log.info(f'{self.num}: Established return')
+            logger.debug(f'{self.num}: Established return')
             return
 
         if not self._playwright_context_manager:
@@ -170,18 +179,18 @@ class BrowserContextWrapper:
         proxy = await self._proxy_manager.get()
         ws_url = await self.get_ws_url(self._options, proxy)
         await asyncio.sleep(0.5)
-        log.info(f'{self.num}: got ws: {ws_url}')
+        logger.debug(f'{self.num}: got ws: {ws_url}')
         with anyio.fail_after(10):
             browser: Browser = await browser_type.connect_over_cdp(
                 endpoint_url=ws_url, timeout=10000
             )
-        log.info(f'{self.num}: got browser: {browser}')
+        logger.debug(f'{self.num}: got browser: {browser}')
         await self.on_connect(browser)
 
     async def on_connect(self, browser: Browser) -> None:
         self.browser = browser
         self.context = await browser.new_context()
-        log.info(f'{self.num}: got context: {self.context}')
+        logger.debug(f'{self.num}: got context: {self.context}')
 
         self._last_ok_heartbeat = True
 
@@ -202,7 +211,7 @@ class BrowserContextWrapper:
 
     async def on_response(self, response: Optional[Response]):
         if response:
-            log.info(f'{self.num}: Response: {response.status=} {response=}')
+            logger.debug(f'{self.num}: Response: {response.status=} {response=}')
 
         if not response or response.status > 499:
             await self.close()
@@ -215,33 +224,33 @@ class BrowserContextWrapper:
         self._wait.set()
 
     async def close(self):
-        log.warning(f'{self.num}: Close browser')
+        logger.warning(f'{self.num}: Close browser')
         if self.context:
             try:
                 await self.context.close()
             except Exception:
-                log.exception(f'{self.num}: during context close')
+                logger.exception(f'{self.num}: during context close')
             self.context = None
 
         if self.browser:
             try:
                 await self.browser.close()
             except Exception:
-                log.exception(f'{self.num}: during browser close')
+                logger.exception(f'{self.num}: during browser close')
             self.browser = None
 
         if self._playwright_instance:
             try:
                 await self._playwright_instance.stop()
             except Exception:
-                log.exception(f'{self.num}: during playwright stop')
+                logger.exception(f'{self.num}: during playwright stop')
             self._playwright_instance = None
 
         if self._playwright_context_manager:
             try:
                 await self._playwright_context_manager._connection.stop_async()
             except Exception:
-                log.exception(f'{self.num}: during playwright context manager stop')
+                logger.exception(f'{self.num}: during playwright context manager stop')
             self._playwright_context_manager = None
 
     def is_established_connection(self) -> bool:
@@ -251,16 +260,23 @@ class BrowserContextWrapper:
         return self.context.browser.is_connected()
 
     async def check_connection(self):
-        # TODO: add necessary checks here
         if not self.context.browser.is_connected():
             raise BrowserContextWrapperError(f'{self.num}: Browser is not connected')
 
     async def get_ws_url(self, options: Options, proxy: str) -> str:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(base_url=options.host) as client:
             async with self._start_sem:
+                request_data = {'proxy': proxy}
+
+                if options.browser_settings:
+                    request_data['browser_settings'] = options.browser_settings
+
+                if options.fingerprint:
+                    request_data['fingerprint'] = options.fingerprint
+
                 resp = await client.post(
-                    f'{options.host}profiles/one_time',
-                    json={'proxy': proxy, 'browser_settings': {'inactive_kill_timeout': 15}},
+                    '/profiles/one_time',
+                    json=request_data,
                     headers={'x-cloud-api-token': options.token},
                     timeout=options.timeout,
                 )
@@ -288,7 +304,9 @@ class FakeContextWrappers(dict):
         return []
 
 
-CURRENT_WRAPPER: ContextVar[Optional[BrowserContextWrapper]] = ContextVar('current_wrapper', default=None)
+CURRENT_WRAPPER: ContextVar[Optional[BrowserContextWrapper]] = ContextVar(
+    'current_wrapper', default=None
+)
 
 
 class CloudBrowserHandler(ScrapyPlaywrightDownloadHandler):
@@ -300,29 +318,27 @@ class CloudBrowserHandler(ScrapyPlaywrightDownloadHandler):
 
         self.num_browsers = self.settings.NUM_BROWSERS
 
-        self.context_wrappers: FakeContextWrappers[
-            str, BrowserContextWrapper
-        ] = FakeContextWrappers()
+        self.context_wrappers: FakeContextWrappers[str, BrowserContextWrapper] = (
+            FakeContextWrappers()
+        )
 
-        proxies = self.settings.PROXIES
-        host = str(self.settings.API_HOST)
-        if not host.endswith('/'):
-            host += '/'
         self.options = Options(
-            host=host,
+            host=str(self.settings.API_HOST),
             token=self.settings.API_TOKEN,
             init_handler=self.settings.INIT_HANDLER,
             pages_per_browser=self.settings.PAGES_PER_BROWSER,
+            browser_settings=self.settings.BROWSER_SETTINGS,
+            fingerprint=self.settings.FINGERPRINT,
         )
 
         self.browser_pool = asyncio.Queue()
         self.workers = []
 
         self.start_sem = asyncio.Semaphore(self.settings.START_SEMAPHORES)
-        self.proxy_manager = ProxyManager(proxies, self.settings.PROXY_ORDERING)
+        self.proxy_manager = ProxyManager(self.settings.PROXIES, self.settings.PROXY_ORDERING)
 
     def start_workers(self):
-        log.info('START WORKERS')
+        logger.debug('START WORKERS')
 
         for i in range(self.num_browsers):
             self.workers.append(
